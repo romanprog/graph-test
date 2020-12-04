@@ -1,0 +1,58 @@
+name: common
+template: "./gcr.yaml"
+provider:
+  type: aws
+  region: eu-central-1
+variables:
+  organization: "bedrock"
+  domain: example.com
+  env: ops
+  dep: dd
+---
+name: infra1
+template: "./modules1.yaml"
+provider:
+  type: aws
+  region: eu-central-1
+variables:
+  organization: "bedrock"
+  domain: example.com
+  env: "dev"
+  vpc_cidr: "10.8.0.0/18"
+  vpc: {{ remoteState "infra2.vpc.id" }}
+  dep53: {{ remoteState "common.gcr.registry_url" }}
+  azs:
+    - "eu-central-1a"
+    - "eu-central-1b"
+  node_group:
+    - name: dsdsd
+      type: sadasd
+      asg_max_size: 1
+  registry: {{ remoteState "common.gcr.registry_url" }}
+---
+name: infra2
+template: "./modules1.yaml"
+provider:
+  type: aws
+  region: us-east-1
+variables:
+  organization: "bedrock"
+  domain: example.com
+  env: "stage"
+  vpc_cidr: "10.8.0.0/18"
+  vpc: default
+  dep53: {{ remoteState "common.gcr.registry_url" }}
+  azs:
+    - "us-east-1a"
+    - "us-east-1b"
+  node_group:
+    - name: spot-group
+      type: spot
+      asg_max_size: 1
+    - name: on-demand-group
+      instance_type: t3.medium
+      asg_max_size: 1
+      root_volume_size: 20
+  registry: {{ remoteState "common.gcr.registry_url" }}
+
+

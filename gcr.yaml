@@ -1,0 +1,9 @@
+modules:
+  - name: gcr
+    type: terraform
+    source: https://github.com/shalb/cluster.dev/terraform/aws/gcr?{{ ReconcilerVersionTag }}
+    inputs:
+      region: {{ .provider.region }}
+      cluster_domain: {{ .variables.env }}.{{ .variables.domain }}
+      zone_delegation: {{ if eq .variables.domain "cluster.dev" }}true{{ else }}false{{ end }}
+      dep: {{ .variables.dep }}

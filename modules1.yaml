@@ -1,0 +1,31 @@
+modules:
+  - name: route53
+    type: terraform
+    source: https://github.com/shalb/cluster.dev/terraform/aws/route53?{{ ReconcilerVersionTag }}
+    inputs:
+      region: {{ .provider.region }}
+      cluster_name: {{ .name }}
+      dep: {{ .variables.dep53 }}
+      cluster_domain: {{ .variables.env }}.{{ .variables.domain }}
+      zone_delegation: {{ if eq .variables.domain "cluster.dev" }}true{{ else }}false{{ end }}
+  - name: vpc
+    type: terraform
+    source: https://github.com/shalb/cluster.dev/terraform/aws/vpc?{{ ReconcilerVersionTag }}
+    inputs:
+      vpc_id: {{ .variables.vpc }}
+      region: {{ .provider.region }}
+      cluster_name: {{ .name }}
+      domain: {{ remoteState "this.route53.common_domain" }}
+      vpc_cidr: {{ .variables.vpc_cidr }}
+  - name: instance
+    type: terraform
+    source: https://github.com/shalb/cluster.dev/terraform/aws/instance?{{ ReconcilerVersionTag }}
+    inputs:
+      registry: {{ .variables.registry }}
+  - name: eks
+    type: terraaform
+    source: https://github.com/shalb/cluster.dev/terraform/aws/eks?{{ ReconcilerVersionTag }}
+    inputs:
+      vpc_id: {{ .variables.vpc }}
+      cluster_name: {{ .name }}
+      node_group: {{ insertYAML .variables.node_group }}
