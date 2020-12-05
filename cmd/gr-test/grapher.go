@@ -130,16 +130,12 @@ func Version() string {
 	return "v0.1.1"
 }
 
-func (g *Grapher) checkMarkers(data reflect.Value, infra, module string) (reflect.Value, bool) {
+func (g *Grapher) checkDependMarker(data reflect.Value, infra, module string) (reflect.Value, bool) {
 	subVal := reflect.ValueOf(data.Interface())
 	if subVal.Kind() == reflect.String {
-		for hash := range g.InsertYAMLMarkers {
-			if subVal.String() == hash {
-				return reflect.ValueOf(g.InsertYAMLMarkers[hash]), true
-			}
-		}
+		resString := subVal.String()
 		for key, marker := range g.DependencyMarkers {
-			if subVal.String() == key {
+			if strings.Contains(resString, key) {
 				if marker.Infra == "this" {
 					marker.Infra = infra
 				}
@@ -151,16 +147,29 @@ func (g *Grapher) checkMarkers(data reflect.Value, infra, module string) (reflec
 					Module: marker.Module,
 				})
 				remoteStateRef := fmt.Sprintf("${data.terraform_remote_state.%s-%s.%s}", marker.Infra, marker.Module, marker.Output)
-				return reflect.ValueOf(remoteStateRef), true
+				replacer := strings.NewReplacer(key, remoteStateRef)
+				resString = replacer.Replace(resString)
 			}
 		}
-	} else {
-		g.ProcessingRecursive(data.Interface(), infra, module)
+		return reflect.ValueOf(resString), true
 	}
 	return reflect.ValueOf(nil), false
 }
 
-func (g *Grapher) ProcessingRecursive(data interface{}, infra, module string) error {
+func (g *Grapher) checkYAMLBlockMarker(data reflect.Value, infra, module string) (reflect.Value, bool) {
+	subVal := reflect.ValueOf(data.Interface())
+	if subVal.Kind() == reflect.String {
+		for hash := range g.InsertYAMLMarkers {
+			if subVal.String() == hash {
+				return reflect.ValueOf(g.InsertYAMLMarkers[hash]), true
+			}
+		}
+		return data, true
+	}
+	return reflect.ValueOf(nil), false
+}
+
+func (g *Grapher) processingRecursive(data interface{}, infra, module string, procFunc func(data reflect.Value, infra, module string) (reflect.Value, bool)) error {
 	out := reflect.ValueOf(data)
 	if out.Kind() == reflect.Ptr && !out.IsNil() {
 		out = out.Elem()
@@ -168,17 +177,26 @@ func (g *Grapher) ProcessingRecursive(data interface{}, infra, module string) er
 	switch out.Kind() {
 	case reflect.Slice:
 		for i := 0; i < out.Len(); i++ {
-			val, found := g.checkMarkers(out.Index(i), infra, module)
-			if found {
+			val, done := procFunc(out.Index(i), infra, module)
+			if done {
 				out.Index(i).Set(val)
+			} else {
+				err := g.processingRecursive(out.Index(i).Interface(), infra, module, procFunc)
+				if err != nil {
+					return err
+				}
 			}
-			g.checkMarkers(out.Index(i), infra, module)
 		}
 	case reflect.Map:
 		for _, key := range out.MapKeys() {
-			val, found := g.checkMarkers(out.MapIndex(key), infra, module)
-			if found {
+			val, done := procFunc(out.MapIndex(key), infra, module)
+			if done {
 				out.SetMapIndex(key, val)
+			} else {
+				err := g.processingRecursive(out.MapIndex(key).Interface(), infra, module, procFunc)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -188,10 +206,11 @@ func (g *Grapher) ProcessingRecursive(data interface{}, infra, module string) er
 func (g *Grapher) appendModules(data interface{}, infra string) error {
 
 	modulesSliceIf, ok := data.(map[string]interface{})["modules"]
-	modulesSlice := modulesSliceIf.([]interface{})
 	if !ok {
 		return fmt.Errorf("Incompatible struct")
 	}
+	modulesSlice := modulesSliceIf.([]interface{})
+
 	for _, moduleData := range modulesSlice {
 		mName, ok := moduleData.(map[interface{}]interface{})["name"]
 		if !ok {
@@ -223,7 +242,8 @@ func (g *Grapher) appendModules(data interface{}, infra string) error {
 		}
 		modKey := fmt.Sprintf("%s.%s", infra, mName)
 		g.Modules[modKey] = &mod
-		g.ProcessingRecursive(mod.Inputs, infra, mName.(string))
+		g.processingRecursive(mod.Inputs, infra, mName.(string), g.checkYAMLBlockMarker)
+		g.processingRecursive(mod.Inputs, infra, mName.(string), g.checkDependMarker)
 	}
 	return nil
 }
