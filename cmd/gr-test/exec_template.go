@@ -67,13 +67,13 @@ func ExecTemplate(configName string, cName string) error {
 			log.Fatal("infra must contain name field")
 		}
 
-		infraTemplate, err := ioutil.ReadFile(fileName)
+		infraTemplateData, err := ioutil.ReadFile(fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
 		//log.Printf("Templating: %s", fileName)
 		// fmt.Printf("%+v\n", infra)
-		t, err := template.New("main").Funcs(fMap).Option("missingkey=error").Parse(string(infraTemplate))
+		t, err := template.New("main").Funcs(fMap).Option("missingkey=error").Parse(string(infraTemplateData))
 
 		if err != nil {
 			log.Fatal(err)
@@ -85,23 +85,14 @@ func ExecTemplate(configName string, cName string) error {
 			log.Fatal(err)
 		}
 
-		//log.Println(infraScenario.String())
-		scenario := make(map[string]interface{})
-		err = yaml.Unmarshal(infraScenario.Bytes(), &scenario)
+		infrastructureTemplate := make(map[string]interface{})
+		err = yaml.Unmarshal(infraScenario.Bytes(), &infrastructureTemplate)
 		if err != nil {
 			log.Fatal(err)
 		}
-		//log.Println(infraScenario.String())
-		//graph.ProcessingRecursive(scenario)
-		graph.appendModules(scenario, infraName)
+		graph.appendModules(infrastructureTemplate, infraName)
 	}
-	for _, m := range graph.Modules {
-		var depList string
-		for _, dep := range m.Dependencies {
-			depList += dep.Infra + "." + dep.Module + "\n"
-		}
-		//log.Printf("Processing module: %s\nSource: %s\nInputs:\n%s\nDeps:\n  %v\n\n", key, m.Source, JSONinputs, depList)
-	}
+
 	graph.GenCode(cName)
 	graph.CheckGraph()
 	return nil

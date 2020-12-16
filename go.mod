@@ -8,6 +8,6 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/rodaine/hclencoder v0.0.0-20200910194838-aaa140ee61ed
-	github.com/zclconf/go-cty v1.0.0
-	gopkg.in/yaml.v2 v2.3.0
+	github.com/zclconf/go-cty v1.7.0
+	gopkg.in/yaml.v2 v2.4.0
 )

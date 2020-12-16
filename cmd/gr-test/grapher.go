@@ -174,6 +174,7 @@ func (g *Grapher) processingRecursive(data interface{}, infra, module string, pr
 	if out.Kind() == reflect.Ptr && !out.IsNil() {
 		out = out.Elem()
 	}
+	//log.Printf("Kind: %v Elem: %+v", out.Kind(), out)
 	switch out.Kind() {
 	case reflect.Slice:
 		for i := 0; i < out.Len(); i++ {
@@ -192,6 +193,7 @@ func (g *Grapher) processingRecursive(data interface{}, infra, module string, pr
 			val, done := procFunc(out.MapIndex(key), infra, module)
 			if done {
 				out.SetMapIndex(key, val)
+				log.Println(out.MapIndex(key).Kind())
 			} else {
 				err := g.processingRecursive(out.MapIndex(key).Interface(), infra, module, procFunc)
 				if err != nil {
